@@ -39,6 +39,7 @@ struct ContentView: View {
             .onTapGesture { position in
                 if let coordinate = proxy.convert(position, from: .local) {
                     let newLocation = Location(
+                        id: UUID(),
                         name: "New location",
                         description: "",
                         latitude: coordinate.latitude,
