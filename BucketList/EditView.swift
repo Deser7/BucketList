@@ -32,9 +32,6 @@ struct EditView: View {
                 
                 Section("Nearby...") {
                     switch loadingState {
-                    case .loading:
-                        Text("Loading...")
-                        
                     case .loaded:
                         ForEach(pages, id: \.pageId) { page in
                             Text(page.title)
@@ -43,6 +40,8 @@ struct EditView: View {
                             Text(page.description)
                                 .italic()
                         }
+                    case .loading:
+                        Text("Loading...")
                     case .failed:
                         Text("Please try again later.")
                     }
