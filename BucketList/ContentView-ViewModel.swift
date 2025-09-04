@@ -18,6 +18,7 @@ extension ContentView {
         private(set) var locations: [Location]
         var selectedPlace: Location?
         var isUnlocked = false
+        var isStandartMode = true
         
         init() {
             do {

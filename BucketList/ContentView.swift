@@ -36,6 +36,28 @@ struct ContentView: View {
                         }
                     }
                 }
+                .toolbar {
+                    
+                }
+                .mapStyle(viewModel.isStandartMode ? .standard : .hybrid)
+                .safeAreaInset(edge: .top) {
+                    HStack {
+                        Spacer()
+                        Button {
+                            viewModel.isStandartMode.toggle()
+                        } label: {
+                            Image(systemName: "globe")
+                                .imageScale(.large)
+                                .padding(12)
+                        }
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .opacity(0.6)
+                        )
+                    }
+                    .padding(.horizontal, 48)
+                }
                 .onTapGesture { position in
                     if let coordinate = proxy.convert(position, from: .local) {
                         viewModel.addLocation(at: coordinate)
