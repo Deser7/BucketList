@@ -26,11 +26,11 @@ struct EditView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Place name", text: $name)
-                    TextField("Description", text: $description)
+                    TextField("Название места", text: $name)
+                    TextField("Описание", text: $description)
                 }
                 
-                Section("Nearby...") {
+                Section("Поблизости...") {
                     switch loadingState {
                     case .loaded:
                         ForEach(pages, id: \.pageid) { page in
@@ -41,15 +41,15 @@ struct EditView: View {
                                 .italic()
                         }
                     case .loading:
-                        Text("Loading...")
+                        Text("Загрузка...")
                     case .failed:
-                        Text("Please try again later.")
+                        Text("Попробуйте позже.")
                     }
                 }
             }
-            .navigationTitle("Place details")
+            .navigationTitle("Детали места")
             .toolbar {
-                Button("Save") {
+                Button("Сохранить") {
                     var newLocation = location
                     newLocation.id = UUID()
                     newLocation.name = name
