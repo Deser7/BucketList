@@ -37,9 +37,6 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .toolbar {
-                        
-                    }
                     .mapStyle(viewModel.isStandartMode ? .standard : .hybrid)
                     .safeAreaInset(edge: .top) {
                         HStack {
@@ -78,7 +75,7 @@ struct ContentView: View {
                     .clipShape(.capsule)
             }
         }
-        .alert("Ошибка", isPresented: $viewModel.showAlert) {
+        .alert(viewModel.alertTitle ?? "Ошибка", isPresented: $viewModel.showAlert) {
             Button("OK") { }
         } message: {
             Text(viewModel.alertMessage ?? "")

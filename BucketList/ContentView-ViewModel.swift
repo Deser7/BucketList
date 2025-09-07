@@ -10,16 +10,66 @@ import Foundation
 import LocalAuthentication
 import MapKit
 
+private enum AuthenticationErrorType {
+    case userCancelled
+    case biometryNotAvailable
+    case biometryNotEnrolled
+    case biometryLockout
+    case passcodeNotSet
+    case authenticationFailed
+    case unknown(String)
+    
+    var title: String {
+        switch self {
+        case .userCancelled:
+            return "Отменено"
+        case .biometryNotAvailable:
+            return "Биометрия недоступна"
+        case .biometryNotEnrolled:
+            return "Биометрия не настроена"
+        case .biometryLockout:
+            return "Биометрия заблокирована"
+        case .passcodeNotSet:
+            return "Пароль не установлен"
+        case .authenticationFailed:
+            return "Ошибка аутентификации"
+        case .unknown:
+            return "Неизвестная ошибка"
+        }
+    }
+    
+    var message: String {
+        switch self {
+        case .userCancelled:
+            return "Аутентификация отменена пользователем"
+        case .biometryNotAvailable:
+            return "Биометрия не поддерживается на этом устройстве"
+        case .biometryNotEnrolled:
+            return "Настройте Touch ID или Face ID в настройках устройства"
+        case .biometryLockout:
+            return "Слишком много неудачных попыток. Используйте пароль устройства"
+        case .passcodeNotSet:
+            return "Установите пароль устройства в настройках"
+        case .authenticationFailed:
+            return "Попробуйте еще раз"
+        case .unknown(let description):
+            return description
+        }
+    }
+}
+
 extension ContentView {
     @Observable
     final class ViewModel {
         let savePath = URL.documentsDirectory.appending(path: "SavedPlaces")
         
         private(set) var locations: [Location]
+        var alertMessage: String?
+        var alertTitle: String?
         var selectedPlace: Location?
         var isUnlocked = false
         var isStandartMode = true
-        var alertMessage: String?
+        
         var showAlert = false
         
         init() {
@@ -73,99 +123,76 @@ extension ContentView {
                         if success {
                             self?.isUnlocked = true
                         } else {
-                            if let authError = authenticationError as? LAError {
-                                self?.handleAuthenticationError(authError)
+                            if let authError = authenticationError {
+                                self?.handleError(authError)
                             } else {
-                                self?.showErrorAlert("Ошибка аутентификации", "Неизвестная ошибка")
+                                self?.handleError(NSError(domain: "AuthenticationError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Неизвестная ошибка"]))
                             }
                         }
                     }
                 }
             } else {
                 if let error = error {
-                    handleBiometryAvailabilityError(error)
+                    handleError(error)
                 } else {
-                    showErrorAlert("Ошибка", "Биометрия недоступна")
+                    handleError(NSError(domain: "BiometryError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Биометрия недоступна"]))
                 }
             }
         }
         
-        private func handleAuthenticationError(_ error: LAError) {
+        private func handleError(_ error: Error) {
+            let errorType: AuthenticationErrorType
+            
+            if let laError = error as? LAError {
+                errorType = mapLAError(laError)
+            } else {
+                errorType = .unknown(error.localizedDescription)
+            }
+            if case .userCancelled = errorType {
+                return
+            }
+            
+            showErrorAlert(errorType.title, errorType.message)
+        }
+
+        private func mapLAError(_ error: LAError) -> AuthenticationErrorType {
             switch error.code {
-            case .userCancel:
-                break
-            case .userFallback:
-                showErrorAlert("Альтернативный метод", "Выбран альтернативный метод аутентификации")
-            case .biometryNotAvailable:
-                showErrorAlert("Биометрия недоступна", "Биометрия не поддерживается на этом устройстве")
-            case .biometryNotEnrolled:
-                showErrorAlert("Биометрия не настроена", "Настройте Touch ID или Face ID в настройках устройства")
-            case .biometryLockout:
-                showErrorAlert("Биометрия заблокирована", "Слишком много неудачных попыток. Используйте пароль устройства")
-            case .systemCancel:
-                showErrorAlert("Отменено системой", "Аутентификация была отменена системой")
+            case .userCancel, .appCancel:
+                return .userCancelled
+            case .biometryNotAvailable, .touchIDNotAvailable:
+                return .biometryNotAvailable
+            case .biometryNotEnrolled, .touchIDNotEnrolled:
+                return .biometryNotEnrolled
+            case .biometryLockout, .touchIDLockout:
+                return .biometryLockout
             case .passcodeNotSet:
-                showErrorAlert("Пароль не установлен", "Установите пароль устройства в настройках")
-            case .touchIDNotAvailable:
-                showErrorAlert("Touch ID недоступен", "Touch ID не поддерживается на этом устройстве")
-            case .touchIDNotEnrolled:
-                showErrorAlert("Touch ID не настроен", "Настройте Touch ID в настройках устройства")
-            case .touchIDLockout:
-                showErrorAlert("Touch ID заблокирован", "Touch ID заблокирован. Используйте пароль устройства")
-            case .notInteractive:
-                showErrorAlert("Не интерактивно", "Аутентификация не может быть выполнена в данный момент")
-            case .biometryNotPaired:
-                showErrorAlert("Биометрия не сопряжена", "Биометрия не сопряжена с устройством")
-            case .biometryDisconnected:
-                showErrorAlert("Биометрия отключена", "Биометрия отключена от устройства")
-            case .invalidContext:
-                showErrorAlert("Неверный контекст", "Ошибка контекста аутентификации")
+                return .passcodeNotSet
             case .authenticationFailed:
-                showErrorAlert("Попробуйте еще раз", "Аутентификация не удалась. Попроьуйте отпечаток пальца или лицо")
-            case .appCancel:
-                break
-            @unknown default:
-                showErrorAlert("Неизвестная ошибка", error.localizedDescription)
+                return .authenticationFailed
+            default:
+                return .unknown(error.localizedDescription)
             }
         }
-        
-        private func handleBiometryAvailabilityError(_ error: NSError) {
+
+        private func mapNSError(_ error: NSError) -> AuthenticationErrorType {
             switch error.code {
             case LAError.biometryNotAvailable.rawValue:
-                showErrorAlert("Биометрия недоступна", "Биометрия не поддерживается на этом устройстве")
+                return .biometryNotAvailable
             case LAError.biometryNotEnrolled.rawValue:
-                showErrorAlert("Биометрия не настроена", "Настройте биометрию в настройках устройства")
+                return .biometryNotEnrolled
             case LAError.biometryLockout.rawValue:
-                showErrorAlert("Биометрия заблокирована", "Биометрия заблокирована. Используйте пароль устройства")
+                return .biometryLockout
             case LAError.passcodeNotSet.rawValue:
-                showErrorAlert("Пароль не установлен", "Установите пароль устройства в настройках")
+                return .passcodeNotSet
             default:
-                showErrorAlert("Ошибка биометрии", error.localizedDescription)
+                return .unknown(error.localizedDescription)
             }
         }
         
         private func showErrorAlert(_ title: String, _ message: String) {
-            alertMessage = "\(title)\n\n\(message)"
-            showAlert = true
+            alertMessage = message
+            alertTitle = title
             isUnlocked = false
-        }
-        
-        private func tryPasswordAuthentication() {
-            let fallbackContext = LAContext()
-            
-            if fallbackContext.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) {
-                fallbackContext.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Введите пароль устройства") { [weak self] success, error in
-                    DispatchQueue.main.async {
-                        if success {
-                            self?.isUnlocked = true
-                        } else {
-                            self?.showErrorAlert("Ошибка пароля", "Неверный пароль или ошибка аутентификации")
-                        }
-                    }
-                }
-            } else {
-                showErrorAlert("Аутентификация недоступна", "Аутентификация не настроена на этом устройстве")
-            }
         }
     }
 }
